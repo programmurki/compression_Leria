@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Huffman Compressor</title>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            margin: 0;
+            padding: 20px;
+            line-height: 1.5;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        h1, h2 {
+            font-weight: 500;
+            margin-bottom: 1.5rem;
+        }
+
+        h1 {
+            font-size: 2rem;
+            color: #fff;
+        }
+
+        h2 {
+            font-size: 1.25rem;
+            color: #e0e0e0;
+            margin-top: 2rem;
+        }
+
+        .section {
+            margin-bottom: 2rem;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 150px;
+            background-color: #1e1e1e;
+            color: #fff;
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 12px;
+            font-family: inherit;
+            font-size: 14px;
+            resize: vertical;
+            margin-bottom: 1rem;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-label {
+            display: block;
+            background-color: #1e1e1e;
+            border: 1px dashed #444;
+            border-radius: 6px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            margin-bottom: 1rem;
+        }
+
+        .file-label:hover {
+            border-color: #666;
+        }
+
+        button {
+            background-color: #3a3a3a;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #4a4a4a;
+        }
+
+        button.primary {
+            background-color: #2563eb;
+        }
+
+        button.primary:hover {
+            background-color: #3b82f6;
+        }
+
+        .stats {
+            background-color: #1e1e1e;
+            padding: 16px;
+            border-radius: 6px;
+            margin-top: 1rem;
+            font-size: 14px;
+        }
+
+        .stats p {
+            margin: 0.5rem 0;
+        }
+
+        pre {
+            background-color: #1e1e1e;
+            padding: 12px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 13px;
+        }
+
+        .tab-buttons {
+            display: flex;
+            margin-bottom: 1rem;
+        }
+
+        .tab-button {
+            padding: 8px 16px;
+            background-color: #1e1e1e;
+            border: none;
+            color: #fff;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .tab-button.active {
+            background-color: #333;
+            font-weight: 500;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <h1>Сжатие текста алгоритмом Хаффмана</h1>
+    
+    <div class="section">
+        <div class="tab-buttons">
+            <button class="tab-button active" onclick="switchTab('text')">Текст</button>
+            <button class="tab-button" onclick="switchTab('file')">Файл</button>
+        </div>
+        
+        <div id="text-tab" class="tab-content active">
+            <textarea id="input-text" placeholder="Введите текст для сжатия..."></textarea>
+        </div>
+        
+        <div id="file-tab" class="tab-content">
+            <label for="file-input" class="file-label">
+                <p>Перетащите файл сюда или нажмите для выбора</p>
+                <p><small>Поддерживаются текстовые файлы (.txt)</small></p>
+            </label>
+            <input type="file" id="file-input" accept=".txt">
+        </div>
+        
+        <button class="primary" onclick="compress()">Сжать</button>
+    </div>
+    
+    <div class="section">
+        <h2>Результат</h2>
+        <div id="output-area">
+            <p>Результат сжатия появится здесь.</p>
+        </div>
+        
+        <div id="stats" class="stats" style="display: none;">
+            <p><strong>Исходный размер:</strong> <span id="original-size">0</span> байт</p>
+            <p><strong>Сжатый размер:</strong> <span id="compressed-size">0</span> байт</p>
+            <p><strong>Коэффициент сжатия:</strong> <span id="compression-ratio">0</span>%</p>
+        </div>
+        
+        <button id="download-btn" class="primary" style="display: none; margin-top: 1rem;" onclick="downloadCompressed()">Скачать сжатый файл</button>
+    </div>
+
+    <script>
+        // Переключение между вкладками
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            event.currentTarget.classList.add('active');
+            document.getElementById(tabName + '-tab').classList.add('active');
+        }
+        
+        // Основная функция сжатия
+        function compress() {
+            let text = '';
+            
+            if (document.querySelector('.tab-button.active').textContent === 'Текст') {
+                text = document.getElementById('input-text').value;
+            } else {
+                const fileInput = document.getElementById('file-input');
+                if (fileInput.files.length === 0) {
+                    alert('Пожалуйста, выберите файл');
+                    return;
+                }
+                
+                const file = fileInput.files[0];
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    text = e.target.result;
+                    performCompression(text);
+                };
+                
+                reader.readAsText(file);
+                return;
+            }
+            
+            if (!text.trim()) {
+                alert('Пожалуйста, введите текст или выберите файл');
+                return;
+            }
+            
+            performCompression(text);
+        }
+        
+        function performCompression(text) {
+            // Здесь должна быть реализация алгоритма Хаффмана
+            // Это упрощенная демонстрация
+            
+            // 1. Подсчет частот символов
+            const freq = {};
+            for (const char of text) {
+                freq[char] = (freq[char] || 0) + 1;
+            }
+            
+            // 2. Создание таблицы кодов (заглушка)
+            const codes = {};
+            Object.keys(freq).forEach((char, i) => {
+                codes[char] = i.toString(2).padStart(8, '0').slice(-4); // Пример кодирования
+            });
+            
+            // 3. Кодирование текста
+            let encoded = '';
+            for (const char of text) {
+                encoded += codes[char];
+            }
+            
+            // 4. Преобразование в байты
+            const bytes = [];
+            for (let i = 0; i < encoded.length; i += 8) {
+                const byte = encoded.substr(i, 8);
+                bytes.push(parseInt(byte.padEnd(8, '0'), 2));
+            }
+            
+            // 5. Отображение результатов
+            displayResults(text, bytes);
+        }
+        
+        function displayResults(originalText, compressedBytes) {
+            const outputArea = document.getElementById('output-area');
+            const statsDiv = document.getElementById('stats');
+            const downloadBtn = document.getElementById('download-btn');
+            
+            // Отображаем сжатые данные
+            outputArea.innerHTML = `
+                <p>Сжатые данные:</p>
+                <pre>${compressedBytes.join(' ')}</pre>
+            `;
+            
+            // Показываем статистику
+            const originalSize = new TextEncoder().encode(originalText).length;
+            const compressedSize = compressedBytes.length;
+            const ratio = ((1 - compressedSize / originalSize) * 100).toFixed(2);
+            
+            document.getElementById('original-size').textContent = originalSize;
+            document.getElementById('compressed-size').textContent = compressedSize;
+            document.getElementById('compression-ratio').textContent = ratio;
+            
+            statsDiv.style.display = 'block';
+            downloadBtn.style.display = 'block';
+            
+            // Сохраняем данные для скачивания
+            downloadBtn.dataset.compressedData = compressedBytes.join(',');
+            downloadBtn.dataset.originalSize = originalSize;
+        }
+        
+        function downloadCompressed() {
+            const compressedData = event.currentTarget.dataset.compressedData.split(',').map(Number);
+            const originalSize = event.currentTarget.dataset.originalSize;
+            
+            const byteArray = new Uint8Array(compressedData);
+            const blob = new Blob([byteArray], {type: 'application/octet-stream'});
+            
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `compressed_${originalSize}.huff`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        
+        // Обработка перетаскивания файлов
+        const fileLabel = document.querySelector('.file-label');
+        
+        fileLabel.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            fileLabel.style.borderColor = '#666';
+        });
+        
+        fileLabel.addEventListener('dragleave', () => {
+            fileLabel.style.borderColor = '#444';
+        });
+        
+        fileLabel.addEventListener('drop', (e) => {
+            e.preventDefault();
+            fileLabel.style.borderColor = '#444';
+            
+            if (e.dataTransfer.files.length) {
+                document.getElementById('file-input').files = e.dataTransfer.files;
+            }
+        });
+    </script>
+</body>
+</html>
